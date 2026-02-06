@@ -15,16 +15,22 @@ impl Parser {
         Ok(Self { grammar })
     }
 
-    pub(crate) fn parse_to_tree<'a>(&'a self, formula: &'a str) -> Result<ParseTree> {
-        self.grammar
+    /// Builds a parser, parses `formula`, and runs `f` on the first parse tree.
+    /// Use this instead of returning a `ParseTree` because in bnf 0.6 parse trees borrow from the parser.
+    pub(crate) fn with_parse_tree<F, R>(&self, formula: &str, f: F) -> Result<R>
+    where
+        F: for<'p> FnOnce(&ParseTree<'p>) -> R,
+    {
+        let parser = self.grammar.build_parser().context("Couldn't build parser")?;
+        let parse_tree = parser
             .parse_input(formula)
             .next()
-            .context(format!("Grammar could not parse input: {}", formula))
+            .context(format!("Grammar could not parse input: {}", formula))?;
+        Ok(f(&parse_tree))
     }
 
     pub(crate) fn parse<'a>(&'a self, formula: &'a str) -> Result<Formula> {
-        let parse_tree = self.parse_to_tree(formula)?;
-        Formula::parse_input(&parse_tree)
+        self.with_parse_tree(formula, Formula::parse_input)?
     }
 }
 
@@ -62,7 +68,8 @@ mod tests {
 
         let input = "\"Ala\"\n";
 
-        grammar
+        let parser = grammar.build_parser().unwrap();
+        parser
             .parse_input(input)
             .next()
             .context(format!("Could not parse input: {}", input))
@@ -88,12 +95,12 @@ mod tests {
             ];
 
             for formula in formulas {
-                parser.parse_to_tree(formula).unwrap();
+                parser.with_parse_tree(formula, |_| ()).unwrap();
             }
         }
 
         for_each_external_test(|input| {
-            parser.parse_to_tree(input).unwrap();
+            parser.with_parse_tree(input, |_| ()).unwrap();
         });
     }
 }

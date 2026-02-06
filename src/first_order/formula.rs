@@ -755,10 +755,12 @@ mod parse {
                 ];
 
                 for (formula, expected) in formulas {
-                    // let parsed_formula = parser.parse(formula).unwrap();
-                    let tree = parser.parse_to_tree(formula).unwrap();
-                    let parsed_formula = Formula::parse_input(&tree)
-                        .unwrap_or_else(|err| panic!("Backtrace: {}", err.backtrace()));
+                    let parsed_formula = parser
+                        .with_parse_tree(formula, |tree| {
+                            Formula::parse_input(tree)
+                                .unwrap_or_else(|err| panic!("Backtrace: {}", err.backtrace()))
+                        })
+                        .unwrap();
                     assert_eq!(parsed_formula, expected);
                 }
             }
